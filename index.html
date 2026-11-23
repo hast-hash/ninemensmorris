@@ -1,0 +1,873 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>九つ石のモリス</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9A%AA%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js" integrity="sha384-x0YgkOr/3UOZP2CRDxGW9e0Q+2Qjyr3uJrm4xU32Y7ZCNAo7Cc7bjhrZMi/dwczu" crossorigin="anonymous"></script>
+<style>
+:root{
+  --bg:#e3e7e0; --ink:#1e292d; --muted:#55656a; --panel:#d5dbd3; --rule:#b7c0b9;
+  --board:#3e4d55; --line:#c3cfd2; --brass:#d4a72c; --brass-ink:#7a5c0c;
+  --bone:#f1ebdc; --bone-edge:#a79d82; --basalt:#22292d; --basalt-edge:#6f7c82;
+  --btn:#1e292d; --btn-ink:#eef1ec;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#151a1c; --ink:#e3e8e5; --muted:#93a2a6; --panel:#1f2629; --rule:#323d41;
+    --board:#34434b; --line:#b7c4c8; --brass:#e0b443; --brass-ink:#e0b443;
+    --btn:#e3e8e5; --btn-ink:#151a1c;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#151a1c; --ink:#e3e8e5; --muted:#93a2a6; --panel:#1f2629; --rule:#323d41;
+  --board:#34434b; --line:#b7c4c8; --brass:#e0b443; --brass-ink:#e0b443;
+  --btn:#e3e8e5; --btn-ink:#151a1c;
+  color-scheme:dark;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic","Noto Sans JP",sans-serif;
+  font-size:15px; line-height:1.7;
+}
+.wrap{max-width:1020px; margin:0 auto; padding:28px 20px 48px}
+header{display:flex; align-items:baseline; gap:16px; flex-wrap:wrap; margin-bottom:22px}
+h1{
+  font-family:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  font-weight:800; font-size:clamp(28px,5vw,40px); letter-spacing:.04em; margin:0; line-height:1.2;
+}
+header p{margin:0; color:var(--muted)}
+.layout{display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:32px; align-items:start}
+@media (max-width:820px){ .layout{grid-template-columns:1fr} }
+
+.board-wrap{max-width:620px; width:100%; margin:0 auto}
+svg.board{display:block; width:100%; height:auto; aspect-ratio:1; touch-action:manipulation; user-select:none}
+.hit{fill:transparent; cursor:pointer; outline:none}
+.hit:focus-visible{stroke:var(--brass); stroke-width:3; stroke-dasharray:4 4}
+@keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
+.pulse{animation:pulse 1.1s ease-in-out infinite}
+@keyframes drop{from{transform:scale(.6);opacity:.2}to{transform:scale(1);opacity:1}}
+.drop{transform-box:fill-box; transform-origin:center; animation:drop .22s ease-out}
+@media (prefers-reduced-motion:reduce){ .pulse,.drop{animation:none} }
+
+.status{
+  font-family:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  font-weight:600; font-size:19px; line-height:1.55; margin:0 0 6px; min-height:3.1em;
+}
+.note{color:var(--muted); min-height:1.7em; margin:0 0 18px; font-size:14px}
+.player{
+  display:grid; grid-template-columns:34px 1fr; gap:4px 12px; align-items:center;
+  padding:12px 14px; border-left:4px solid transparent; background:var(--panel);
+  border-radius:4px 10px 10px 4px; margin-bottom:10px;
+}
+.player.active{border-left-color:var(--brass)}
+.player .chip{width:30px; height:30px; border-radius:50%; grid-row:span 2}
+.chip.p1{background:var(--bone); box-shadow:inset 0 -3px 0 var(--bone-edge)}
+.chip.p2{background:var(--basalt); box-shadow:inset 0 -3px 0 #000, 0 0 0 2px var(--basalt-edge)}
+.player .name{font-weight:700}
+.player .counts{color:var(--muted); font-size:13px}
+.tray{display:flex; gap:4px; grid-column:2; margin-top:2px}
+.tray i{width:12px; height:12px; border-radius:50%; display:block; border:1.5px solid var(--rule)}
+.tray.p1 i.on{background:var(--bone); border-color:var(--bone-edge)}
+.tray.p2 i.on{background:var(--basalt); border-color:var(--basalt-edge)}
+
+.controls{margin-top:22px; display:grid; gap:14px}
+.seg{display:flex; border:1.5px solid var(--ink); border-radius:999px; overflow:hidden}
+.seg button{
+  flex:1; border:0; background:transparent; color:var(--ink); font:inherit; font-size:14px;
+  padding:8px 6px; cursor:pointer;
+}
+.seg button[aria-pressed="true"]{background:var(--ink); color:var(--bg)}
+.row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+.row label{font-size:14px; color:var(--muted); min-width:4.5em}
+select{
+  font:inherit; font-size:14px; padding:6px 10px; border-radius:8px;
+  border:1.5px solid var(--rule); background:var(--bg); color:var(--ink); flex:1;
+}
+.actions{display:flex; gap:10px}
+.actions button{
+  flex:1; font:inherit; font-weight:700; font-size:14px; padding:10px 12px; border-radius:10px; cursor:pointer;
+  border:1.5px solid var(--btn); background:var(--btn); color:var(--btn-ink);
+}
+.actions button.ghost{background:transparent; color:var(--ink)}
+.actions button:disabled{opacity:.4; cursor:default}
+button:focus-visible,select:focus-visible{outline:3px solid var(--brass); outline-offset:2px}
+.cpu-only[hidden]{display:none}
+
+details{margin-top:26px; border-top:1px solid var(--rule); padding-top:14px}
+summary{cursor:pointer; font-weight:700}
+details ol{padding-left:1.3em; margin:10px 0 0; color:var(--ink); font-size:14px}
+details li{margin-bottom:6px}
+nav.views{display:flex; gap:6px; margin-left:auto}
+nav.views a{
+  color:var(--ink); text-decoration:none; font-size:14px; font-weight:500;
+  padding:6px 14px; border-radius:999px; border:1.5px solid var(--rule);
+}
+nav.views a[aria-current="page"]{background:var(--ink); color:var(--bg); border-color:var(--ink)}
+nav.views a:focus-visible{outline:3px solid var(--brass); outline-offset:2px}
+[hidden]{display:none !important}
+
+.lobby{max-width:720px}
+.lobby h2,.roombox h3{
+  font-family:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  font-weight:600; margin:0 0 6px;
+}
+.lobby h2{font-size:24px}
+.lobby .lead{color:var(--muted); margin:0 0 18px}
+.create{display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:30px}
+.big{
+  font:inherit; font-weight:700; font-size:16px; padding:12px 22px; border-radius:12px; cursor:pointer;
+  border:1.5px solid var(--btn); background:var(--btn); color:var(--btn-ink);
+}
+.big:disabled{opacity:.4; cursor:default}
+.big:focus-visible{outline:3px solid var(--brass); outline-offset:2px}
+.rooms{list-style:none; margin:0; padding:0; border-top:1px solid var(--rule)}
+.rooms li{
+  display:grid; grid-template-columns:1fr auto; gap:2px 16px; align-items:center;
+  padding:12px 4px; border-bottom:1px solid var(--rule);
+}
+.rooms .who{font-weight:700}
+.rooms .meta{color:var(--muted); font-size:13px}
+.rooms a{
+  grid-row:span 2; color:var(--ink); font-weight:700; font-size:14px; text-decoration:none;
+  border:1.5px solid var(--ink); border-radius:10px; padding:6px 14px;
+}
+.rooms a:focus-visible{outline:3px solid var(--brass); outline-offset:2px}
+.empty{color:var(--muted); padding:16px 4px}
+.tag{display:inline-block; font-size:12px; padding:0 8px; border-radius:999px; margin-left:6px; vertical-align:1px}
+.tag.wait{background:var(--brass); color:#2a2105}
+.tag.play{border:1px solid var(--muted); color:var(--muted)}
+.tag.done{color:var(--muted)}
+
+.roombox{margin-top:22px; padding-top:16px; border-top:1px solid var(--rule)}
+.roombox h3{font-size:16px}
+.linkrow{display:flex; gap:8px}
+.linkrow input{
+  flex:1; min-width:0; font:inherit; font-size:13px; padding:8px 10px; border-radius:8px;
+  border:1.5px solid var(--rule); background:var(--bg); color:var(--ink);
+}
+.linkrow button{
+  font:inherit; font-size:14px; font-weight:700; padding:8px 14px; border-radius:8px; cursor:pointer;
+  border:1.5px solid var(--ink); background:transparent; color:var(--ink); white-space:nowrap;
+}
+.small{color:var(--muted); font-size:13px; margin:8px 0 0}
+.stack{display:grid; gap:10px; margin-top:16px}
+.stack button{
+  font:inherit; font-weight:700; font-size:14px; padding:10px 12px; border-radius:10px; cursor:pointer;
+  border:1.5px solid var(--btn); background:var(--btn); color:var(--btn-ink);
+}
+.stack button.ghost{background:transparent; color:var(--ink)}
+.stack button.warn{background:transparent; color:var(--ink); border-color:var(--rule)}
+.stack button:focus-visible,.linkrow button:focus-visible{outline:3px solid var(--brass); outline-offset:2px}
+.stack a{color:var(--muted); font-size:14px; text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>九つ石のモリス</h1>
+    <p>3つ並べて、相手の石を取り合う古い盤上遊び</p>
+    <nav class="views" aria-label="遊び方の切り替え">
+      <a href="#lobby" id="navLobby">オンライン対戦</a>
+      <a href="#local" id="navLocal">この端末で遊ぶ</a>
+    </nav>
+  </header>
+
+  <!-- オンライン対戦の入口 -->
+  <section class="lobby" id="lobbyView" hidden>
+    <h2>部屋を作って対戦する</h2>
+    <p class="lead">部屋を作るとリンクができます。相手にリンクを送ると、お互いのブラウザが直接つながって対戦できます。部屋のデータはどこにも保存されず、対局が終わるか、部屋を作った人がページを閉じると部屋はなくなります。</p>
+    <div class="create">
+      <button class="big" id="createRoom">部屋を作る</button>
+      <span class="small" id="lobbyNote"></span>
+    </div>
+    <p class="small">ネットワークによっては直接つながらないことがあります（学校や会社のネットワークなど）。その場合は、スマートフォンの回線など別のネットワークで試してください。</p>
+  </section>
+
+  <!-- 対局画面 -->
+  <div class="layout" id="gameView" hidden>
+    <div class="board-wrap">
+      <svg class="board" id="board" viewBox="0 0 640 640" role="group" aria-label="モリスの盤"></svg>
+    </div>
+
+    <aside>
+      <p class="status" id="status" aria-live="polite"></p>
+      <p class="note" id="note"></p>
+
+      <div class="player" id="pl1">
+        <span class="chip p1"></span>
+        <span class="name" id="name1"></span>
+        <span class="counts" id="cnt1"></span>
+        <div class="tray p1" id="tray1"></div>
+      </div>
+      <div class="player" id="pl2">
+        <span class="chip p2"></span>
+        <span class="name" id="name2"></span>
+        <span class="counts" id="cnt2"></span>
+        <div class="tray p2" id="tray2"></div>
+      </div>
+
+      <!-- この端末で遊ぶ -->
+      <div class="controls" id="localControls">
+        <div class="seg" role="group" aria-label="対戦の形">
+          <button id="modePvp" aria-pressed="true">2人で対戦</button>
+          <button id="modeCpu" aria-pressed="false">CPUと対戦</button>
+        </div>
+        <div class="row cpu-only" hidden>
+          <label for="level">CPUの強さ</label>
+          <select id="level">
+            <option value="easy">やさしい</option>
+            <option value="normal" selected>ふつう</option>
+            <option value="hard">つよい</option>
+          </select>
+        </div>
+        <div class="row cpu-only" hidden>
+          <label for="side">あなた</label>
+          <select id="side">
+            <option value="1" selected>白（先手）</option>
+            <option value="2">黒（後手）</option>
+          </select>
+        </div>
+        <div class="actions">
+          <button id="newGame">新しいゲーム</button>
+          <button id="undo" class="ghost">一手戻す</button>
+        </div>
+      </div>
+
+      <!-- オンラインの部屋 -->
+      <div class="roombox" id="roomControls" hidden>
+        <div id="linkBox">
+          <h3>この部屋のリンク</h3>
+          <div class="linkrow">
+            <input id="roomLink" readonly aria-label="この部屋のリンク">
+            <button id="copyLink">コピー</button>
+          </div>
+          <p class="small">リンクを開いた最初の1人が、黒の相手として参加します。</p>
+        </div>
+        <div class="stack">
+          <button id="reconnect" hidden>もう一度つなぐ</button>
+          <button id="leaveRoom" class="ghost">部屋を出る</button>
+          <a href="#lobby" id="backLobby" hidden>新しい部屋を作る</a>
+        </div>
+      </div>
+
+      <details>
+        <summary>遊び方</summary>
+        <ol>
+          <li>白から交互に、空いている点へ石を1つずつ置きます。手持ちは9個ずつです。</li>
+          <li>全部置き終えたら、線でつながった隣の空き点へ石を1つずつ動かします。</li>
+          <li>線の上に自分の石を3つ並べる（ミル）と、相手の石を1つ取れます。ミルの中の石は、ほかに取れる石がないときだけ取れます。</li>
+          <li>石が3個まで減った側は、どの空き点へも飛んで移動できます。</li>
+          <li>相手の石を2個にするか、相手を動けなくしたら勝ちです。石が取られないまま50手進むと引き分けです。</li>
+        </ol>
+      </details>
+    </aside>
+  </div>
+</div>
+
+<script>
+/* ---------- 盤の形 ---------- */
+const RING=[[0,0],[3,0],[6,0],[6,3],[6,6],[3,6],[0,6],[0,3]];
+const POS=[];
+for(let r=0;r<3;r++)for(let k=0;k<8;k++){const s=(6-2*r)/6;POS.push([r+RING[k][0]*s,r+RING[k][1]*s]);}
+const ADJ=Array.from({length:24},()=>[]);
+const link=(a,b)=>{ADJ[a].push(b);ADJ[b].push(a);};
+for(let r=0;r<3;r++)for(let k=0;k<8;k++)link(r*8+k,r*8+(k+1)%8);
+for(const k of[1,3,5,7]){link(k,8+k);link(8+k,16+k);}
+const MILLS=[];
+for(let r=0;r<3;r++)for(const k of[0,2,4,6])MILLS.push([r*8+k,r*8+k+1,r*8+(k+2)%8]);
+for(const k of[1,3,5,7])MILLS.push([k,8+k,16+k]);
+const MILLS_AT=Array.from({length:24},()=>[]);
+MILLS.forEach(m=>m.forEach(i=>MILLS_AT[i].push(m)));
+const px=v=>50+v*90;
+
+/* ---------- ルール ---------- */
+const DRAW_LIMIT=50, WIN=100000;
+const inMill=(b,i,p)=>MILLS_AT[i].some(m=>b[m[0]]===p&&b[m[1]]===p&&b[m[2]]===p);
+function removable(b,q){
+  const all=[],free=[];
+  for(let i=0;i<24;i++)if(b[i]===q){all.push(i);if(!inMill(b,i,q))free.push(i);}
+  return free.length?free:all;
+}
+const newState=()=>({b:Array(24).fill(0),hand:[0,9,9],on:[0,0,0],turn:1,quiet:0});
+function targets(s,p){
+  const b=s.b,out=[];
+  if(s.hand[p]>0){for(let i=0;i<24;i++)if(!b[i])out.push([-1,i]);return out;}
+  const fly=s.on[p]===3;
+  for(let i=0;i<24;i++)if(b[i]===p){
+    if(fly){for(let j=0;j<24;j++)if(!b[j])out.push([i,j]);}
+    else for(const j of ADJ[i])if(!b[j])out.push([i,j]);
+  }
+  return out;
+}
+function genMoves(s){
+  const p=s.turn,q=3-p,b=s.b,out=[];
+  for(const[f,t]of targets(s,p)){
+    if(f>=0)b[f]=0; b[t]=p;
+    if(inMill(b,t,p)){for(const r of removable(b,q))out.push({from:f,to:t,rm:r});}
+    else out.push({from:f,to:t,rm:-1});
+    b[t]=0; if(f>=0)b[f]=p;
+  }
+  return out;
+}
+function apply(s,m){
+  const p=s.turn,q=3-p;
+  const n={b:s.b.slice(),hand:s.hand.slice(),on:s.on.slice(),turn:q,quiet:s.quiet};
+  if(m.from<0){n.hand[p]--;n.on[p]++;}else n.b[m.from]=0;
+  n.b[m.to]=p;
+  if(m.rm>=0){n.b[m.rm]=0;n.on[q]--;n.quiet=0;}
+  else if(n.hand[1]===0&&n.hand[2]===0)n.quiet++;
+  return n;
+}
+function outcome(s){
+  const q=s.turn,p=3-q;
+  if(s.hand[q]===0&&s.on[q]<3)return{winner:p,reason:"pieces"};
+  if(genMoves(s).length===0)return{winner:p,reason:"blocked"};
+  if(s.quiet>=DRAW_LIMIT)return{winner:0,reason:"draw"};
+  return null;
+}
+
+/* ---------- CPU ---------- */
+function mobility(s,p){
+  if(s.hand[p]>0||s.on[p]<=3)return 0;
+  let n=0;for(let i=0;i<24;i++)if(s.b[i]===p)for(const j of ADJ[i])if(!s.b[j])n++;
+  return n;
+}
+function evaluate(s,p){
+  const q=3-p,b=s.b;
+  let sc=((s.on[p]+s.hand[p])-(s.on[q]+s.hand[q]))*120;
+  for(const m of MILLS){
+    let cp=0,cq=0,ce=0;
+    for(const i of m){if(b[i]===p)cp++;else if(b[i]===q)cq++;else ce++;}
+    if(cp===3)sc+=20; else if(cq===3)sc-=20;
+    if(cp===2&&ce===1)sc+=14; else if(cq===2&&ce===1)sc-=14;
+  }
+  sc+=(mobility(s,p)-mobility(s,q))*4;
+  return sc;
+}
+function negamax(s,d,a,beta){
+  const q=s.turn;
+  if(s.hand[q]===0&&s.on[q]<3)return -WIN-d;
+  const moves=genMoves(s);
+  if(!moves.length)return -WIN-d;
+  if(s.quiet>=DRAW_LIMIT)return 0;
+  if(d===0)return evaluate(s,q);
+  moves.sort((x,y)=>(y.rm>=0)-(x.rm>=0));
+  let best=-Infinity;
+  for(const m of moves){
+    const v=-negamax(apply(s,m),d-1,-beta,-a);
+    if(v>best)best=v; if(v>a)a=v; if(a>=beta)break;
+  }
+  return best;
+}
+function chooseMove(s,level){
+  const moves=genMoves(s);
+  for(let i=moves.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[moves[i],moves[j]]=[moves[j],moves[i]];}
+  if(level==="easy"&&Math.random()<0.4)return moves[0];
+  moves.sort((x,y)=>(y.rm>=0)-(x.rm>=0));
+  const depth={easy:1,normal:2,hard:4}[level];
+  let best=moves[0],bv=-Infinity,a=-Infinity;
+  for(const m of moves){
+    let v=-negamax(apply(s,m),depth-1,-Infinity,-a);
+    if(level!=="hard")v+=Math.random()*8;
+    if(v>bv){bv=v;best=m;} if(v>a)a=v;
+  }
+  return best;
+}
+
+/* ---------- 画面の状態 ---------- */
+let view="lobby";              // lobby | local | room
+let state=newState(),history=[],last=null,result=null,ui={sel:-1,pending:null,note:""};
+let busy=false,cpuToken=0;
+const cfg={mode:"pvp",level:"normal",human:1};
+const $=id=>document.getElementById(id);
+const short=p=>p===1?"白":"黒";
+const clone=o=>JSON.parse(JSON.stringify(o));
+
+/* オンライン（PeerJS でブラウザ同士を直接つなぐ）
+   部屋を作った人（ホスト）が白、リンクから来た人（ゲスト）が黒。
+   盤面の正本はホストが持ち、ゲストの手はホストが確かめてから反映する。 */
+const PEER_PREFIX="kokonotsu-morris-";
+const CLOSE_DELAY=15000;       /* 終局から部屋を閉じるまで */
+const MOVE_TIMEOUT=8000;
+let net=null;                  /* {role,id,peer,conn,ready,connected,version,ended,msg,closeTimer,moveTimer} */
+let writing=false;
+
+const mySeat=()=>net?(net.role==="host"?1:2):0;
+function name(p){
+  if(view==="room"&&net)return p===mySeat()?`あなた（${short(p)}）`:`相手（${short(p)}）`;
+  if(view==="local"&&cfg.mode==="cpu")return p===cfg.human?`あなた（${short(p)}）`:`CPU（${short(p)}）`;
+  return short(p);
+}
+const isCpuTurn=()=>view==="local"&&cfg.mode==="cpu"&&!result&&state.turn!==cfg.human;
+function canAct(){
+  if(result||busy)return false;
+  if(view==="local")return !isCpuTurn();
+  if(view==="room")return !!net&&net.connected&&!net.ended&&!writing&&state.turn===mySeat();
+  return false;
+}
+/* ---------- この端末で遊ぶ ---------- */
+function newGame(){
+  cpuToken++;busy=false;
+  state=newState();history=[];last=null;result=null;
+  ui={sel:-1,pending:null,note:""};
+  render();maybeCpu();
+}
+function displayBoard(){
+  const b=state.b.slice();
+  if(ui.pending){if(ui.pending.from>=0)b[ui.pending.from]=0;b[ui.pending.to]=state.turn;}
+  return b;
+}
+function commit(m,byCpu){
+  if(view==="room"){commitOnline(m);return;}
+  history.push({state,last});
+  const mover=state.turn;
+  state=apply(state,m);last=m;
+  ui={sel:-1,pending:null,note:""};
+  if(m.rm>=0)ui.note=byCpu?"CPUがミルを作り、石を1つ取りました。":`${short(mover)}がミルを作り、${short(3-mover)}の石を1つ取りました。`;
+  result=outcome(state);
+  render();maybeCpu();
+}
+function tryMove(f,t){
+  const b=state.b.slice();if(f>=0)b[f]=0;b[t]=state.turn;
+  if(inMill(b,t,state.turn)){ui.pending={from:f,to:t};ui.sel=-1;ui.note="";render();}
+  else commit({from:f,to:t,rm:-1},false);
+}
+function onPoint(i){
+  if(!canAct())return;
+  const s=state,p=s.turn,q=3-p;
+  if(ui.pending){
+    if(removable(displayBoard(),q).includes(i))commit({...ui.pending,rm:i},false);
+    else{ui.note="光っている相手の石から選んでください。";render();}
+    return;
+  }
+  const ts=targets(s,p);
+  if(s.hand[p]>0){
+    if(!s.b[i])tryMove(-1,i);
+    else{ui.note="空いている点を選んでください。";render();}
+    return;
+  }
+  if(s.b[i]===p){
+    if(ui.sel===i){ui.sel=-1;ui.note="";}
+    else if(ts.some(t=>t[0]===i)){ui.sel=i;ui.note="";}
+    else{ui.sel=-1;ui.note="その石は動ける場所がありません。";}
+    render();return;
+  }
+  if(ui.sel>=0&&!s.b[i]&&ts.some(t=>t[0]===ui.sel&&t[1]===i)){tryMove(ui.sel,i);return;}
+  if(ui.sel>=0&&!s.b[i]){ui.note=s.on[p]===3?"":"線でつながった隣の空き点にだけ動かせます。";render();}
+}
+function maybeCpu(){
+  if(!isCpuTurn())return;
+  busy=true;render();
+  const tok=++cpuToken;
+  setTimeout(()=>{
+    if(tok!==cpuToken)return;
+    const m=chooseMove(state,cfg.level);
+    busy=false;
+    if(tok!==cpuToken)return;
+    commit(m,true);
+  },420);
+}
+function undo(){
+  cpuToken++;busy=false;
+  if(ui.pending){ui.pending=null;ui.note="";render();return;}
+  if(!history.length)return;
+  let h=history.pop();
+  if(cfg.mode==="cpu")while(h.state.turn!==cfg.human&&history.length)h=history.pop();
+  state=h.state;last=h.last;result=null;ui={sel:-1,pending:null,note:""};
+  render();maybeCpu();
+}
+
+/* ---------- オンライン：部屋 ---------- */
+function randId(n){
+  const c="abcdefghjkmnpqrstuvwxyz23456789";let s="";
+  const a=new Uint32Array(n);crypto.getRandomValues(a);
+  for(const v of a)s+=c[v%c.length];
+  return s;
+}
+const hostKey=id=>"morris-host-"+id;
+function loadHost(id){
+  try{const v=sessionStorage.getItem(hostKey(id));return v?JSON.parse(v):null;}catch(e){return null;}
+}
+function saveHost(){
+  if(!net||net.role!=="host"||net.ended)return;
+  try{sessionStorage.setItem(hostKey(net.id),JSON.stringify({id:net.id,state,last,result,version:net.version}));}catch(e){}
+}
+function dropHost(id){try{sessionStorage.removeItem(hostKey(id));}catch(e){}}
+
+function peerError(e){
+  switch(e&&e.type){
+    case "peer-unavailable":return "部屋が見つかりません。部屋を作った人がページを閉じたか、対局が終わっています。";
+    case "browser-incompatible":return "このブラウザは直接接続に対応していません。別のブラウザで開いてください。";
+    case "unavailable-id":return "部屋の準備に失敗しました。少し待ってからページを開き直してください。";
+    case "network":case "server-error":case "socket-error":case "socket-closed":
+      return "接続の仲介サーバーにつながりません。時間をおいて試してください。";
+    default:return "接続でエラーが起きました。ページを開き直してください。";
+  }
+}
+
+function createRoom(){
+  if(typeof Peer==="undefined"){$("lobbyNote").textContent="接続用のプログラムを読み込めませんでした。ネットワークを確かめてください。";return;}
+  const id=randId(10);
+  try{sessionStorage.setItem(hostKey(id),JSON.stringify({id,state:newState(),last:null,result:null,version:1}));}catch(e){}
+  location.hash="room-"+id;
+}
+function leaveNet(){
+  if(!net)return;
+  clearTimeout(net.closeTimer);clearTimeout(net.moveTimer);
+  const n=net;net=null;writing=false;
+  try{if(n.conn)n.conn.close();}catch(e){}
+  try{if(n.peer)n.peer.destroy();}catch(e){}
+}
+function openRoom(id){
+  leaveNet();
+  ui={sel:-1,pending:null,note:""};
+  if(typeof Peer==="undefined"){
+    net={role:"guest",id,ended:false,msg:"接続用のプログラムを読み込めませんでした。ネットワークを確かめてください。"};
+    state=newState();last=null;result=null;render();return;
+  }
+  const rec=loadHost(id);
+  if(rec)startHost(rec,0);else startGuest(id);
+}
+
+/* ホスト側 */
+function startHost(rec,tries){
+  state=rec.state;last=rec.last;result=rec.result;
+  const peer=new Peer(PEER_PREFIX+rec.id,{debug:0});
+  net={role:"host",id:rec.id,peer,conn:null,ready:false,connected:false,version:rec.version,ended:false,msg:""};
+  const me=net;
+  peer.on("open",()=>{if(net!==me)return;me.ready=true;render();});
+  peer.on("connection",c=>{
+    if(net!==me)return;
+    if(me.conn&&me.conn.open){
+      c.on("open",()=>{c.send({t:"full"});setTimeout(()=>c.close(),800);});
+      return;
+    }
+    me.conn=c;
+    c.on("open",()=>{if(net!==me||me.conn!==c)return;me.connected=true;ui.note="";sendState();render();});
+    c.on("data",d=>{if(net===me&&me.conn===c)onHostData(d);});
+    c.on("close",()=>{
+      if(net!==me||me.conn!==c)return;
+      me.conn=null;me.connected=false;
+      if(!me.ended)ui.note="相手との接続が切れました。相手が同じリンクを開き直せば、続きから再開できます。";
+      render();
+    });
+  });
+  peer.on("disconnected",()=>{if(net===me&&!me.ended&&!peer.destroyed)peer.reconnect();});
+  peer.on("error",e=>{
+    if(net!==me)return;
+    if(e.type==="unavailable-id"&&tries<6){   /* 開き直した直後は前のIDがまだ残っていることがある */
+      try{peer.destroy();}catch(x){}
+      net=null;setTimeout(()=>{if(view==="room"&&!net)startHost(rec,tries+1);},2500);
+      ui.note="部屋を準備しています…";render();return;
+    }
+    me.msg=peerError(e);render();
+  });
+  render();
+}
+function sendState(){
+  if(net&&net.conn&&net.conn.open)net.conn.send({t:"state",state,last,result,version:net.version});
+}
+function onHostData(d){
+  if(!d||d.t!=="move")return;
+  const m=d.m||{};
+  const legal=!result&&state.turn===2&&d.version===net.version&&
+    genMoves(state).some(x=>x.from===m.from&&x.to===m.to&&x.rm===m.rm);
+  if(!legal){net.conn.send({t:"reject",msg:"その手は反映できませんでした。最新の盤面で打ち直してください。"});sendState();return;}
+  hostApply({from:m.from,to:m.to,rm:m.rm});
+}
+function hostApply(m){
+  const mover=state.turn;
+  state=apply(state,m);last=m;result=outcome(state);net.version++;
+  ui={sel:-1,pending:null,note:m.rm>=0?`${short(mover)}がミルを作り、${short(3-mover)}の石を1つ取りました。`:""};
+  saveHost();sendState();render();
+  if(result)scheduleClose();
+}
+function scheduleClose(){
+  if(!net||net.role!=="host"||net.closeTimer)return;
+  const me=net;
+  dropHost(me.id);
+  me.closeTimer=setTimeout(()=>{
+    if(net!==me)return;
+    me.ended=true;
+    try{if(me.conn&&me.conn.open)me.conn.send({t:"closed"});}catch(e){}
+    setTimeout(()=>{try{me.peer.destroy();}catch(e){}},600);
+    render();
+  },CLOSE_DELAY);
+}
+
+/* ゲスト側 */
+function startGuest(id){
+  state=newState();last=null;result=null;
+  const peer=new Peer({debug:0});
+  net={role:"guest",id,peer,conn:null,ready:false,connected:false,version:0,ended:false,msg:""};
+  const me=net;
+  peer.on("open",()=>{
+    if(net!==me)return;
+    me.ready=true;
+    const c=peer.connect(PEER_PREFIX+id,{reliable:true});
+    me.conn=c;
+    c.on("open",()=>{if(net!==me)return;me.connected=true;me.msg="";c.send({t:"hello"});render();});
+    c.on("data",d=>{if(net===me)onGuestData(d);});
+    c.on("close",()=>{
+      if(net!==me)return;
+      me.connected=false;
+      if(!me.ended&&!me.msg)me.msg=result
+        ?"対局が終わったので、部屋は閉じられました。"
+        :"部屋を作った人との接続が切れました。相手がページを開き直していれば、「もう一度つなぐ」で再開できます。";
+      render();
+    });
+    setTimeout(()=>{if(net===me&&!me.connected&&!me.msg){me.msg="部屋につながりません。部屋を作った人がページを開いているか確かめてください。";render();}},15000);
+  });
+  peer.on("error",e=>{if(net!==me)return;me.msg=peerError(e);render();});
+  render();
+}
+function onGuestData(d){
+  if(!d)return;
+  if(d.t==="state"){
+    const changed=d.version!==net.version;
+    clearTimeout(net.moveTimer);writing=false;
+    net.version=d.version;
+    if(changed){
+      const prevLast=last;
+      state=d.state;last=d.last;result=d.result;
+      const mover=3-state.turn;
+      ui={sel:-1,pending:null,note:last&&last.rm>=0&&last!==prevLast?`${short(mover)}がミルを作り、${short(3-mover)}の石を1つ取りました。`:""};
+    }
+    render();
+  }else if(d.t==="reject"){
+    clearTimeout(net.moveTimer);writing=false;ui.note=d.msg;render();
+  }else if(d.t==="full"){
+    net.msg="この部屋はすでに2人そろっています。";net.ended=true;render();
+  }else if(d.t==="closed"){
+    net.ended=true;render();
+  }
+}
+function commitOnline(m){
+  if(net.role==="host"){hostApply(m);return;}
+  const ver=net.version;
+  state=apply(state,m);last=m;result=outcome(state);
+  ui={sel:-1,pending:null,note:""};
+  writing=true;render();
+  net.conn.send({t:"move",m:{from:m.from,to:m.to,rm:m.rm},version:ver});
+  const me=net;
+  me.moveTimer=setTimeout(()=>{
+    if(net!==me||!writing)return;
+    writing=false;ui.note="手が届いたか確かめられませんでした。接続を確かめてください。";render();
+  },MOVE_TIMEOUT);
+}
+function leaveRoom(){
+  if(net&&net.role==="host"){
+    dropHost(net.id);
+    try{if(net.conn&&net.conn.open)net.conn.send({t:"closed"});}catch(e){}
+    const n=net;net=null;
+    setTimeout(()=>{try{n.peer.destroy();}catch(e){}},400);
+  }else leaveNet();
+  location.hash="lobby";
+}
+
+/* ---------- 描画 ---------- */
+const NS="http://www.w3.org/2000/svg";
+const svg=$("board");
+function el(tag,attrs,parent){
+  const e=document.createElementNS(NS,tag);
+  for(const k in attrs)e.setAttribute(k,attrs[k]);
+  if(parent)parent.appendChild(e);return e;
+}
+function buildStatic(){
+  const defs=el("defs",{},svg);
+  const f=el("filter",{id:"grain",x:"0",y:"0",width:"100%",height:"100%"},defs);
+  el("feTurbulence",{type:"fractalNoise",baseFrequency:"0.9",numOctaves:"2",seed:"7",result:"n"},f);
+  el("feColorMatrix",{in:"n",type:"matrix",values:"0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .07 0"},f);
+  const g1=el("radialGradient",{id:"gBone",cx:"38%",cy:"32%",r:"70%"},defs);
+  el("stop",{offset:"0","stop-color":"#fffdf6"},g1);
+  el("stop",{offset:"1","stop-color":"#ddd3bb"},g1);
+  const g2=el("radialGradient",{id:"gBasalt",cx:"38%",cy:"32%",r:"70%"},defs);
+  el("stop",{offset:"0","stop-color":"#56636a"},g2);
+  el("stop",{offset:"1","stop-color":"#15191c"},g2);
+  el("rect",{x:4,y:4,width:632,height:632,rx:22,fill:"var(--board)"},svg);
+  el("rect",{x:4,y:4,width:632,height:632,rx:22,filter:"url(#grain)"},svg);
+  const lines=el("g",{stroke:"var(--line)","stroke-width":4,fill:"none","stroke-linecap":"round",opacity:.85},svg);
+  for(let r=0;r<3;r++){const a=px(r),w=px(6-r)-a;el("rect",{x:a,y:a,width:w,height:w},lines);}
+  for(const k of[1,3,5,7]){const[a,b]=POS[k],[c,d]=POS[16+k];el("line",{x1:px(a),y1:px(b),x2:px(c),y2:px(d)},lines);}
+  el("g",{id:"dyn"},svg);
+  const hits=el("g",{},svg);
+  POS.forEach(([x,y],i)=>{
+    const h=el("circle",{cx:px(x),cy:px(y),r:38,class:"hit",tabindex:0,role:"button","data-i":i},hits);
+    h.addEventListener("click",()=>onPoint(i));
+    h.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();onPoint(i);}});
+  });
+}
+function stone(g,i,p,extra){
+  const[x,y]=POS[i];const cx=px(x),cy=px(y);
+  const grp=el("g",extra||{},g);
+  el("circle",{cx,cy:cy+3,r:27,fill:"rgba(0,0,0,.35)"},grp);
+  el("circle",{cx,cy,r:26,fill:p===1?"url(#gBone)":"url(#gBasalt)",stroke:p===1?"#a79d82":"#6f7c82","stroke-width":2},grp);
+  el("circle",{cx,cy,r:15,fill:"none",stroke:p===1?"rgba(120,105,70,.25)":"rgba(255,255,255,.08)","stroke-width":2},grp);
+}
+function render(){
+  if(view==="lobby")return;
+  const g=$("dyn");g.innerHTML="";
+  const b=displayBoard(),p=state.turn,q=3-p;
+  const act=canAct();
+
+  for(const m of MILLS){
+    const o=b[m[0]];
+    if(o&&b[m[1]]===o&&b[m[2]]===o){
+      const[a,c]=[POS[m[0]],POS[m[2]]];
+      el("line",{x1:px(a[0]),y1:px(a[1]),x2:px(c[0]),y2:px(c[1]),stroke:"var(--brass)","stroke-width":10,"stroke-linecap":"round",opacity:.55},g);
+    }
+  }
+  const dests=new Set();
+  if(act&&!ui.pending){
+    const ts=targets(state,p);
+    if(state.hand[p]>0)ts.forEach(t=>dests.add(t[1]));
+    else if(ui.sel>=0)ts.filter(t=>t[0]===ui.sel).forEach(t=>dests.add(t[1]));
+  }
+  POS.forEach(([x,y],i)=>{
+    if(b[i])return;
+    if(dests.has(i))el("circle",{cx:px(x),cy:px(y),r:11,fill:"var(--brass)",opacity:.9},g);
+    else el("circle",{cx:px(x),cy:px(y),r:7,fill:"var(--line)"},g);
+  });
+  if(last&&last.rm>=0&&!b[last.rm]){
+    const[x,y]=POS[last.rm];
+    el("circle",{cx:px(x),cy:px(y),r:24,fill:"none",stroke:"var(--line)","stroke-width":2,"stroke-dasharray":"5 6",opacity:.7},g);
+  }
+  for(let i=0;i<24;i++)if(b[i]){
+    const fresh=(ui.pending&&ui.pending.to===i)||(last&&last.to===i&&!ui.pending);
+    stone(g,i,b[i],fresh?{class:"drop"}:null);
+  }
+  if(last&&!ui.pending&&b[last.to]){
+    const[x,y]=POS[last.to];
+    el("circle",{cx:px(x),cy:px(y),r:5,fill:"var(--brass)"},g);
+    if(last.from>=0){const[fx,fy]=POS[last.from];el("circle",{cx:px(fx),cy:px(fy),r:13,fill:"none",stroke:"var(--brass)","stroke-width":2,opacity:.6},g);}
+  }
+  if(ui.sel>=0){const[x,y]=POS[ui.sel];el("circle",{cx:px(x),cy:px(y),r:33,fill:"none",stroke:"var(--brass)","stroke-width":5},g);}
+  if(ui.pending){
+    for(const i of removable(b,q)){const[x,y]=POS[i];el("circle",{cx:px(x),cy:px(y),r:34,fill:"none",stroke:"var(--brass)","stroke-width":4,"stroke-dasharray":"8 6",class:"pulse"},g);}
+  }
+  document.querySelectorAll(".hit").forEach(h=>{
+    const i=+h.dataset.i,v=b[i];
+    h.setAttribute("aria-label",`点${i+1}：${v?short(v)+"の石":"空き"}`);
+  });
+
+  // 文章
+  let st,note=ui.note;
+  const online=view==="room";
+  if(online&&net&&net.msg&&!(result&&net.ended)){st=net.msg;note="";}
+  else if(result){
+    st=result.winner===0?"引き分けです。":`${name(result.winner)}の勝ちです。`;
+    note=result.reason==="pieces"?`${short(3-result.winner)}の石が2個になりました。`:
+         result.reason==="blocked"?`${short(3-result.winner)}は動ける石がなくなりました。`:
+         `${DRAW_LIMIT}手のあいだ石が取られませんでした。`;
+    if(online)note+=net&&net.ended?"対局が終わったので、部屋を閉じました。":"この部屋はまもなく閉じられます。";
+  }
+  else if(online&&net&&net.ended){st="部屋は閉じられました。";}
+  else if(online&&net&&net.role==="host"&&!net.ready){st="部屋を準備しています…";}
+  else if(online&&net&&net.role==="host"&&!net.connected){st="相手を待っています。この部屋のリンクを送ってください。";}
+  else if(online&&net&&!net.connected){st="部屋につないでいます…";}
+  else if(busy)st="CPUが考えています…";
+  else if(writing)st="手を送っています…";
+  else if(online&&!act){st=`${name(p)}の番です。相手が打つのを待っています。`;}
+  else if(ui.pending)st=`ミルができました。取る${short(q)}の石を選んでください。`;
+  else if(state.hand[p]>0)st=`${name(p)}の番です。空いている点に石を置いてください。`;
+  else if(state.on[p]===3)st=`${name(p)}の番です。石が3個なので、どの空き点へも飛べます。`;
+  else st=ui.sel>=0?`${name(p)}の番です。動かす先を選んでください。`:`${name(p)}の番です。動かす石を選んでください。`;
+  if(!note&&!result&&state.hand[1]===0&&state.hand[2]===0&&state.quiet>=DRAW_LIMIT-10)
+    note=`あと${DRAW_LIMIT-state.quiet}手で石が取られなければ引き分けです。`;
+  $("status").textContent=st;
+  $("note").textContent=note||"";
+
+  for(const pl of[1,2]){
+    $("name"+pl).textContent=name(pl);
+    const lost=9-state.hand[pl]-state.on[pl];
+    $("cnt"+pl).textContent=`手持ち ${state.hand[pl]}　盤上 ${state.on[pl]}　取られた ${lost}`;
+    $("tray"+pl).innerHTML=Array.from({length:9},(_,k)=>`<i class="${k<state.hand[pl]?"on":""}"></i>`).join("");
+    $("pl"+pl).classList.toggle("active",!result&&state.turn===pl&&(!online||!!(net&&net.connected)));
+  }
+
+  if(view==="local"){
+    $("undo").disabled=!history.length&&!ui.pending;
+  }else if(net){
+    const host=net.role==="host";
+    $("linkBox").hidden=!(host&&!net.ended&&!result);
+    $("roomLink").value=`${location.origin}${location.pathname}${location.search}#room-${net.id}`;
+    $("reconnect").hidden=!(!host&&!net.connected&&!net.ended&&!result&&net.msg);
+    $("leaveRoom").hidden=net.ended;
+    $("leaveRoom").textContent=host?"部屋を閉じる":"部屋を出る";
+    $("backLobby").hidden=!(net.ended||result);
+  }
+}
+
+/* ---------- 画面の切り替え ---------- */
+function route(){
+  const h=location.hash.replace(/^#/,"");
+  const m=/^room-([a-z0-9]{6,16})$/.exec(h);
+  const prev=view;
+  view=m?"room":h==="local"?"local":"lobby";
+  $("lobbyView").hidden=view!=="lobby";
+  $("gameView").hidden=view==="lobby";
+  $("localControls").hidden=view!=="local";
+  $("roomControls").hidden=view!=="room";
+  $("navLobby").setAttribute("aria-current",view!=="local"?"page":"false");
+  $("navLocal").setAttribute("aria-current",view==="local"?"page":"false");
+  if(view!=="room"&&net){
+    if(net.role==="host"&&!net.ended){
+      try{if(net.conn&&net.conn.open)net.conn.send({t:"closed"});}catch(e){}
+      dropHost(net.id);
+    }
+    leaveNet();
+  }
+  if(view==="room"){
+    cpuToken++;busy=false;
+    if(!net||net.id!==m[1])openRoom(m[1]);else render();
+  }else if(view==="local"){
+    if(prev!=="local")newGame();
+  }
+}
+
+/* ---------- 設定 ---------- */
+function setMode(md){
+  cfg.mode=md;
+  $("modePvp").setAttribute("aria-pressed",md==="pvp");
+  $("modeCpu").setAttribute("aria-pressed",md==="cpu");
+  document.querySelectorAll(".cpu-only").forEach(e=>e.hidden=md!=="cpu");
+  newGame();
+}
+$("modePvp").onclick=()=>setMode("pvp");
+$("modeCpu").onclick=()=>setMode("cpu");
+$("level").onchange=e=>{cfg.level=e.target.value;newGame();};
+$("side").onchange=e=>{cfg.human=+e.target.value;newGame();};
+$("newGame").onclick=newGame;
+$("undo").onclick=undo;
+$("createRoom").onclick=createRoom;
+$("leaveRoom").onclick=leaveRoom;
+$("reconnect").onclick=()=>{if(net)openRoom(net.id);};
+$("copyLink").onclick=async()=>{
+  const inp=$("roomLink");
+  try{await navigator.clipboard.writeText(inp.value);$("copyLink").textContent="コピーしました";}
+  catch(e){inp.focus();inp.select();$("copyLink").textContent="選択しました";}
+  setTimeout(()=>$("copyLink").textContent="コピー",1800);
+};
+$("roomLink").addEventListener("focus",e=>e.target.select());
+window.addEventListener("hashchange",route);
+window.addEventListener("pagehide",()=>{
+  if(net&&net.role==="host")try{if(net.conn&&net.conn.open)net.conn.send({t:"bye"});}catch(e){}
+});
+
+buildStatic();
+route();
+</script>
+</body>
+</html>
